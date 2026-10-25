@@ -1,0 +1,1 @@
+cat fix-duplicates.sql | docker exec -i btcadvisor-postgres-db psql -U sa -d postgres

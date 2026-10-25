@@ -1,0 +1,240 @@
+{
+	"data": [
+		{
+			"id": "binance_BTC/USDT_1h_sma_50_0",
+			"indicator": "sma",
+			"result": {
+				"value": 62114.61660000001
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_sma_100_0",
+			"indicator": "sma",
+			"result": {
+				"value": 61086.20350000003
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_sma_200_0",
+			"indicator": "sma",
+			"result": {
+				"value": 60173.713099999964
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ichimoku__0",
+			"indicator": "ichimoku",
+			"result": {
+				"conversion": 64177.555,
+				"base": 62848.34,
+				"spanA": 63512.947499999995,
+				"spanB": 62527.5,
+				"currentSpanA": 60860.17,
+				"currentSpanB": 60335.465,
+				"laggingSpanA": 60448.95,
+				"laggingSpanB": 60184.58
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_hma_9_0",
+			"indicator": "hma",
+			"result": {
+				"value": 64009.925703709065
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_price__0",
+			"indicator": "price",
+			"result": {
+				"value": 64217.82
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_rsi_14_0",
+			"indicator": "rsi",
+			"result": {
+				"value": 66.8094496364715
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_stoch__0",
+			"indicator": "stoch",
+			"result": {
+				"valueK": 32.23304070231443,
+				"valueD": 31.678090880726945
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_cci__0",
+			"indicator": "cci",
+			"result": {
+				"value": 39.01070892965054
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_adx__0",
+			"indicator": "adx",
+			"result": {
+				"value": 59.11422942204831
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ao__0",
+			"indicator": "ao",
+			"result": {
+				"value": 1314.529029411664
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_mom__0",
+			"indicator": "mom",
+			"result": {
+				"value": 385.8099999999977
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_macd__0",
+			"indicator": "macd",
+			"result": {
+				"valueMACD": 587.6126667694843,
+				"valueMACDSignal": 685.9568649746379,
+				"valueMACDHist": -98.34419820515359
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_stochf__0",
+			"indicator": "stochf",
+			"result": {
+				"valueFastK": 55.83719074221863,
+				"valueFastD": 32.23304070231449
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_willr__0",
+			"indicator": "willr",
+			"result": {
+				"value": -31.878514148769572
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_kickingbylength__0",
+			"indicator": "kickingbylength",
+			"result": {
+				"value": 0
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ema_10_0",
+			"indicator": "ema",
+			"result": {
+				"value": 64066.70253923464
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ema_20_0",
+			"indicator": "ema",
+			"result": {
+				"value": 63683.947255431165
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ema_50_0",
+			"indicator": "ema",
+			"result": {
+				"value": 62572.3471769018
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ema_50_0",
+			"indicator": "ema",
+			"result": {
+				"value": 62572.3471769018
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ema_100_0",
+			"indicator": "ema",
+			"result": {
+				"value": 61571.653280944745
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_ema_200_0",
+			"indicator": "ema",
+			"result": {
+				"value": 60715.656302553056
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_sma_10_0",
+			"indicator": "sma",
+			"result": {
+				"value": 64132.08299999991
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_sma_20_0",
+			"indicator": "sma",
+			"result": {
+				"value": 63991.25249999998
+			},
+			"errors": [
+			]
+		},
+		{
+			"id": "binance_BTC/USDT_1h_sma_50_0",
+			"indicator": "sma",
+			"result": {
+				"value": 62116.33300000004
+			},
+			"errors": [
+			]
+		}
+	]
+}

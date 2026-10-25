@@ -1,0 +1,19 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG ConnectionString=default_connection_string
+ENV ConnectionString=$ConnectionString
+
+WORKDIR /app
+COPY BtcAdvisor.csproj .
+RUN dotnet restore
+COPY . .
+RUN dotnet build BtcAdvisor.csproj -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish BtcAdvisor.csproj -c Release -o /app
+FROM publish AS final
+WORKDIR /app
+
+COPY --from=publish /app/entrypoint_dbupdate.sh .
+COPY --from=publish /app .
+
+ENTRYPOINT bash ./entrypoint_dbupdate.sh ${ConnectionString}

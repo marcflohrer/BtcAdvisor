@@ -1,0 +1,31 @@
+namespace BtcAdvisor.Services.Models;
+
+public enum TradeAdvice
+{
+    StrongBuy = 0,
+    StrictBuy = 1,
+    Buy2k = 2,
+    WeakBuy = 3,
+    HiddenBuy = 4,
+    WitchSabbathBuy = 5,
+    Buy = 6,
+    StrictSell = 7,
+    StrictSell1k = 8,
+    StrictSell500 = 9,
+    HalloweenSell = 10,
+    StrongSell = 11,
+    FireSellStrict = 12,
+    Sell = 13,
+    Wait = 14,
+    PanicBuy2k = 15,
+    FireSellStrong = 16,
+    PanicBuyStrict = 18,
+    PanicBuyStrong = 19,
+    PanicBuy = 20,
+    PanicBuyWitchSabbath = 21,
+    PanicBuyHidden = 22,
+    FireSellFormula = 23,
+    FireSellHalloween = 24,
+    FireSell1k = 25,
+    FireSell500 = 26,
+}

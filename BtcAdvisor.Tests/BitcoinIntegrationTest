@@ -1,0 +1,94 @@
+using System.Diagnostics;
+using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
+using BtcAdvisor.Repository;
+using BtcAdvisor.Services.Models;
+using BtcAdvisor.Services.Models.Extensions;
+
+namespace BtcAdvisor.Tests;
+
+[TestFixture]
+public class ProductRepositoryTests
+{
+    private string _connectionString;
+    private Process? _postgresContainer;
+    private ApplicationDbContext? _context;
+    private const string testPassword = "t€$tp@S$w0r∆";
+
+    [SetUp]
+    public void Setup ()
+    {
+        // Docker-Container mit PostgreSQL starten
+        var containerName = $"test-postgres-{Guid.NewGuid()}";
+        var port = "5432"; // Der Standard-Port von PostgreSQL
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "docker",
+            Arguments = $"run --name {containerName} -e POSTGRES_PASSWORD={testPassword} -d -p {port}:5432 postgres",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        _postgresContainer = Process.Start (startInfo) !;
+        _postgresContainer!.WaitForExit ();
+
+        // Warte, bis der Server hochgefahren ist
+        Thread.Sleep (10000); // Wartezeit, damit der Server vollständig hochfährt
+
+        // Erstelle die Verbindungszeichenfolge
+        _connectionString = $"Host=localhost;Port={port};Username=postgres;Password={testPassword};Database=postgres";
+
+        // **Umgebungsvariable setzen**
+        Environment.SetEnvironmentVariable ("ConnectionStrings__DefaultConnection", _connectionString);
+
+        _context = new TestApplicationDbContext (_connectionString);
+
+        // Optional: Migrationen anwenden oder Datenbankstruktur erstellen
+        _context.Database.Migrate ();
+    }
+
+    [Test]
+    public async Task ShouldAddIndicatorDataToDatabaseAsync ()
+    {
+        // Arrange
+        var jsonString = await File.ReadAllTextAsync ("./apiResponses.json");
+        var apiResponses = JsonConvert.DeserializeObject<ApiResponse> (jsonString);
+        var indicatorData = apiResponses!.ToIndicatorDatum ();
+
+        // Act
+        _context.IndicatorData.AddRange (indicatorData!);
+        _context.SaveChanges ();
+
+        // Assert
+        var hma = await _context.IndicatorData.ToListAsync ();
+        Assert.That(hma, Has.Count.EqualTo (25));
+    }
+
+    [TearDown]
+    public void TearDown ()
+    {
+        // Docker-Container stoppen und entfernen
+        if (_postgresContainer != null && !_postgresContainer.HasExited)
+        {
+            var stopInfo = new ProcessStartInfo
+            {
+            FileName = "docker",
+            Arguments = $"rm -f {_postgresContainer.Id}",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+            };
+
+            var stopProcess = Process.Start (stopInfo);
+            stopProcess.WaitForExit ();
+        }
+
+        // DbContext aufräumen
+        _postgresContainer.Dispose ();
+        _context.Dispose ();
+    }
+}

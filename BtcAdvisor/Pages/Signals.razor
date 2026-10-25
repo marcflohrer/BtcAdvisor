@@ -1,0 +1,897 @@
+@page "/"
+@page "/signals"
+@inject HttpClient Http
+@inject IJSRuntime JS
+
+<section class="panel controls-panel">
+    <div class="controls-grid">
+        <label>
+            Start
+            <input type="datetime-local" @bind="StartDateLocalValue" @bind:format="yyyy-MM-ddTHH:mm" />
+        </label>
+        <label>
+            Ende
+            <input type="datetime-local" @bind="EndDateLocalValue" @bind:format="yyyy-MM-ddTHH:mm" />
+        </label>
+        <label>
+            Filter
+            <select @bind="FilterMode">
+                <option value="All">Alle Signale</option>
+                <option value="BuySellOnly">Nur Buy/Sell</option>
+            </select>
+        </label>
+        <label>
+            Signalquelle
+            <input type="text" value="Lange Zeitfenster (LTF)" readonly />
+        </label>
+        <label>
+            Prioritaet
+            <select @bind="UrgencyMode">
+                <option value="All">Alle</option>
+                <option value="UrgentOnly">Nur urgent</option>
+            </select>
+        </label>
+        <label>
+            Y-Achse
+            <select @bind="ChartYAxisMode">
+                <option value="Linear">Linear</option>
+                <option value="Logarithmic">Logarithmisch</option>
+            </select>
+        </label>
+        <label>
+            Kerzen-Intervall
+            <select @bind="ManualChartInterval">
+                <option value="Auto">Auto</option>
+                <option value="1h">1h</option>
+                <option value="2h">2h</option>
+                <option value="4h">4h</option>
+                <option value="12h">12h</option>
+                <option value="1d">1d</option>
+                <option value="1w">1w</option>
+            </select>
+        </label>
+    </div>
+    <div class="controls-actions-row">
+        <button class="secondary-btn" @onclick="SetFullRangeAsync" disabled="@IsLoading">
+            Gesamter Verlauf
+        </button>
+        <button class="primary-btn" @onclick="LoadAsync" disabled="@IsLoading">
+            @(IsLoading ? "Lade..." : "Daten laden")
+        </button>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+    {
+        <p class="error-text">@ErrorMessage</p>
+    }
+</section>
+
+@if (Forecast != null)
+{
+    var isSell = string.Equals(Forecast.NextSignalKind, "Sell", StringComparison.OrdinalIgnoreCase);
+    var triggerPrice = isSell ? Forecast.SellSide?.TriggerPriceThreshold : Forecast.BuySide?.TriggerPriceThreshold;
+    var currentPx = Forecast.CurrentPrice ?? 0.0;
+    var distancePct = (triggerPrice.HasValue && triggerPrice.Value > 0 && currentPx > 0)
+        ? (isSell
+            ? (triggerPrice.Value - currentPx) / currentPx * 100.0
+            : (currentPx - triggerPrice.Value) / currentPx * 100.0)
+        : 0.0;
+    <section class="panel forecast-panel">
+        <div class="chart-title-row">
+            <h2>Prognose: naechstes Signal</h2>
+            <span class="muted">Stand: @Forecast.AsOfUtc.ToString("yyyy-MM-dd HH:mm") UTC | Position: @(Forecast.HasOpenPosition ? "offen" : "geschlossen")</span>
+        </div>
+        <div class="kpi-chips">
+            <div class="kpi-chip kpi-chip--@(isSell ? "negative" : "positive")">
+                <span class="kpi-chip__label">Naechstes Signal</span>
+                <span class="kpi-chip__value">@(isSell ? "SELL" : "BUY")</span>
+            </div>
+            <div class="kpi-chip kpi-chip--neutral">
+                <span class="kpi-chip__label">Aktueller Preis</span>
+                <span class="kpi-chip__value">@(currentPx > 0 ? "$" + currentPx.ToString("N0") : "-")</span>
+            </div>
+            <div class="kpi-chip kpi-chip--neutral">
+                <span class="kpi-chip__label">Trigger-Preis</span>
+                <span class="kpi-chip__value">@(triggerPrice is > 0 ? "$" + triggerPrice.Value.ToString("N0") : "-")</span>
+            </div>
+            <div class="kpi-chip kpi-chip--@(distancePct >= 0 ? "neutral" : "negative")">
+                <span class="kpi-chip__label">Distanz</span>
+                <span class="kpi-chip__value">@(distancePct >= 0 ? "+" : "")@distancePct.ToString("N1")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--neutral">
+                <span class="kpi-chip__label">Cycle ATH</span>
+                <span class="kpi-chip__value">@(Forecast.CycleAth > 0 ? "$" + Forecast.CycleAth.ToString("N0") : "-")</span>
+            </div>
+            <div class="kpi-chip kpi-chip--neutral">
+                <span class="kpi-chip__label">Cycle Low</span>
+                <span class="kpi-chip__value">@(Forecast.CycleLow > 0 ? "$" + Forecast.CycleLow.ToString("N0") : "-")</span>
+            </div>
+        </div>
+        @if (isSell && Forecast.SellSide != null)
+        {
+            <div class="kpi-chips">
+                <div class="kpi-chip kpi-chip--@(Forecast.SellSide.WithinHalvingWindow ? "positive" : "negative")">
+                    <span class="kpi-chip__label">Halving-Fenster</span>
+                    <span class="kpi-chip__value">@(Forecast.SellSide.WithinHalvingWindow ? "offen" : "zu")</span>
+                </div>
+                @if (Forecast.SellSide.DaysUntilWindowCloses.HasValue && Forecast.SellSide.WithinHalvingWindow)
+                {
+                    <div class="kpi-chip kpi-chip--neutral">
+                        <span class="kpi-chip__label">Fenster schliesst in</span>
+                        <span class="kpi-chip__value">@Forecast.SellSide.DaysUntilWindowCloses.Value.ToString("N0") Tage</span>
+                    </div>
+                }
+                else if (Forecast.SellSide.DaysUntilWindowOpens.HasValue && Forecast.SellSide.DaysUntilWindowOpens.Value > 0)
+                {
+                    <div class="kpi-chip kpi-chip--neutral">
+                        <span class="kpi-chip__label">Fenster oeffnet in</span>
+                        <span class="kpi-chip__value">@Forecast.SellSide.DaysUntilWindowOpens.Value.ToString("N0") Tage</span>
+                    </div>
+                }
+                <div class="kpi-chip kpi-chip--@(Forecast.SellSide.AthProximityPercent >= Forecast.SellSide.AthProximityThresholdPercent ? "positive" : "negative")">
+                    <span class="kpi-chip__label">ATH-Naehe</span>
+                    <span class="kpi-chip__value">@Forecast.SellSide.AthProximityPercent.ToString("N1")% / @Forecast.SellSide.AthProximityThresholdPercent.ToString("N0")%</span>
+                </div>
+                <div class="kpi-chip kpi-chip--@(Forecast.SellSide.DrawupPercent >= Forecast.SellSide.DrawupThresholdPercent ? "positive" : "negative")">
+                    <span class="kpi-chip__label">Drawup</span>
+                    <span class="kpi-chip__value">@Forecast.SellSide.DrawupPercent.ToString("N0")% / @Forecast.SellSide.DrawupThresholdPercent.ToString("N0")%</span>
+                </div>
+            </div>
+        }
+        else if (!isSell && Forecast.BuySide != null)
+        {
+            <div class="kpi-chips">
+                <div class="kpi-chip kpi-chip--neutral">
+                    <span class="kpi-chip__label">Cycle Nr.</span>
+                    <span class="kpi-chip__value">@Forecast.BuySide.CycleNumber</span>
+                </div>
+                <div class="kpi-chip kpi-chip--neutral">
+                    <span class="kpi-chip__label">Drawdown-Schwelle</span>
+                    <span class="kpi-chip__value">-@Forecast.BuySide.DrawdownThresholdPercent.ToString("N1")%</span>
+                </div>
+                <div class="kpi-chip kpi-chip--@(Forecast.BuySide.CurrentDrawdownPercent <= -Forecast.BuySide.DrawdownThresholdPercent ? "positive" : "negative")">
+                    <span class="kpi-chip__label">Akt. Drawdown</span>
+                    <span class="kpi-chip__value">@Forecast.BuySide.CurrentDrawdownPercent.ToString("N1")%</span>
+                </div>
+                <div class="kpi-chip kpi-chip--neutral">
+                    <span class="kpi-chip__label">Modus</span>
+                    <span class="kpi-chip__value">@Forecast.BuySide.AdaptiveMode</span>
+                </div>
+            </div>
+        }
+        <p class="muted" style="margin-top:0.5rem;">@Forecast.Rationale</p>
+    </section>
+}
+
+<section class="panel chart-panel">
+    <div class="chart-title-row">
+        <h2>BTC Kurs mit Deal-Markern</h2>
+        <span class="muted">Zeitraum: @StartDateUtc.ToString("yyyy-MM-dd HH:mm") UTC bis @EndDateUtc.ToString("yyyy-MM-dd HH:mm") UTC | Intervall: @ChartInterval | Y: @GetChartYAxisLabel()</span>
+    </div>
+    <div id="signals-chart" class="chart-host"></div>
+</section>
+
+<section class="panel table-panel">
+    <h2>Erkannte Deals</h2>
+
+    @if (ClosedDeals.Count > 0 || OpenBuyDeal != null)
+    {
+        var kpi = ComputeKpis(ClosedDeals, OpenBuyDeal);
+        <div class="kpi-chips">
+            <div class="kpi-chip kpi-chip--@(kpi.CompoundedPct >= 0 ? "positive" : "negative")">
+                <span class="kpi-chip__label">Strategie</span>
+                <span class="kpi-chip__value">@(kpi.CompoundedPct >= 0 ? "+" : "")@kpi.CompoundedPct.ToString("N1")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--neutral">
+                <span class="kpi-chip__label">HODL</span>
+                <span class="kpi-chip__value">@(kpi.HodlPct >= 0 ? "+" : "")@kpi.HodlPct.ToString("N1")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--@(kpi.DeltaPct >= 0 ? "positive" : "negative")">
+                <span class="kpi-chip__label">Delta</span>
+                <span class="kpi-chip__value">@(kpi.DeltaPct >= 0 ? "+" : "")@kpi.DeltaPct.ToString("N1")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--@(kpi.WinRatePct >= 50 ? "positive" : "negative")">
+                <span class="kpi-chip__label">Win-Rate</span>
+                <span class="kpi-chip__value">@kpi.WinRatePct.ToString("N1")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--neutral">
+                <span class="kpi-chip__label">Deals</span>
+                <span class="kpi-chip__value"><span class="pnl-positive">@kpi.WinCount&thinsp;W</span>&hairsp;/&hairsp;<span class="pnl-negative">@(kpi.TotalDeals - kpi.WinCount)&thinsp;L</span></span>
+            </div>
+            <div class="kpi-chip kpi-chip--positive">
+                <span class="kpi-chip__label">Ø Gewinn</span>
+                <span class="kpi-chip__value">+@kpi.AvgGainPct.ToString("N2")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--negative">
+                <span class="kpi-chip__label">Ø Verlust</span>
+                <span class="kpi-chip__value">@kpi.AvgLossPct.ToString("N2")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--positive">
+                <span class="kpi-chip__label">Max Gewinn</span>
+                <span class="kpi-chip__value">+@kpi.MaxGainPct.ToString("N2")%</span>
+            </div>
+            <div class="kpi-chip kpi-chip--negative">
+                <span class="kpi-chip__label">Max Verlust</span>
+                <span class="kpi-chip__value">@kpi.MaxLossPct.ToString("N2")%</span>
+            </div>
+        </div>
+    }
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Einstieg (UTC)</th>
+                    <th>Einstieg $</th>
+                    <th>Ausstieg (UTC)</th>
+                    <th>Ausstieg $</th>
+                    <th>Signal</th>
+                    <th>Gewinn/Verlust %</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (ClosedDeals.Count == 0 && OpenBuyDeal == null)
+                {
+                    <tr><td colspan="7" class="muted">Keine Deals für den gewählten Zeitraum.</td></tr>
+                }
+                else
+                {
+                    var openOffset = OpenBuyDeal != null ? 1 : 0;
+                    var rowNum = ClosedDeals.Count + openOffset;
+                    @if (OpenBuyDeal != null)
+                    {
+                        <tr class="open-trade-row">
+                            <td class="muted">@rowNum</td>
+                            <td>@OpenBuyDeal.Timestamp.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@OpenBuyDeal.Price.ToString("N2")</td>
+                            <td colspan="2" class="muted">offen</td>
+                            <td><span class="deal-chip deal-buy">@OpenBuyDeal.TradeAdvice</span></td>
+                            <td class="muted">–</td>
+                        </tr>
+                    }
+                    var pageRowNum = ClosedDeals.Count - (_currentPage - 1) * PageSize;
+                    @foreach (var deal in PagedDeals)
+                    {
+                        var pnlClass = deal.ProfitPercent >= 0 ? "pnl-positive" : "pnl-negative";
+                        <tr>
+                            <td class="muted">@pageRowNum</td>
+                            <td>@deal.EntryTimestamp.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@deal.EntryPrice.ToString("N2")</td>
+                            <td>@deal.ExitTimestamp.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@deal.ExitPrice.ToString("N2")</td>
+                            <td><span class="deal-chip @GetDealClass(deal.ExitAdvice)">@deal.ExitAdvice</span></td>
+                            <td class="@pnlClass">@(deal.ProfitPercent >= 0 ? "+" : "")@deal.ProfitPercent.ToString("N2")%</td>
+                        </tr>
+                        pageRowNum--;
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+    @if (TotalPages > 1)
+    {
+        <div class="pagination-row">
+            <button class="secondary-btn" disabled="@(_currentPage <= 1)" @onclick="() => { _currentPage--; StateHasChanged(); }">&#8249; Zurück</button>
+            <span class="muted">Seite @_currentPage / @TotalPages</span>
+            <button class="secondary-btn" disabled="@(_currentPage >= TotalPages)" @onclick="() => { _currentPage++; StateHasChanged(); }">Weiter &#8250;</button>
+        </div>
+    }
+</section>
+
+@code {
+    private enum DealFilterMode
+    {
+        All,
+        BuySellOnly
+    }
+
+    private enum UrgencyFilterMode
+    {
+        All,
+        UrgentOnly
+    }
+
+    private enum YAxisScaleMode
+    {
+        Linear,
+        Logarithmic
+    }
+
+    private sealed class BacktestTradeDto
+    {
+        public DateTime Timestamp { get; set; }
+        public string TradeAdvice { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public double? ProfitPercent { get; set; }
+        public bool IsUrgent { get; set; }
+    }
+
+    private sealed class BuyActionLogDto
+    {
+        public int Id { get; set; }
+        public DateTime TradingDate { get; set; }
+        public string TradeAdvice { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public bool IsUrgent { get; set; }
+    }
+
+    private sealed class SellActionLogDto
+    {
+        public DateTime TradingDate { get; set; }
+        public string TradeAdvice { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public bool IsUrgent { get; set; }
+        public int? BuyActionLogId { get; set; }
+    }
+
+    private sealed class ClosedDealDto
+    {
+        public int BuyId { get; set; }
+        public DateTime EntryTimestamp { get; set; }
+        public decimal EntryPrice { get; set; }
+        public string EntryAdvice { get; set; } = string.Empty;
+        public DateTime ExitTimestamp { get; set; }
+        public decimal ExitPrice { get; set; }
+        public string ExitAdvice { get; set; } = string.Empty;
+        public double ProfitPercent { get; set; }
+        public bool IsUrgent { get; set; }
+    }
+
+    private sealed class BitcoinTradeStatusDto
+    {
+        public DateTime MaxDateTime { get; set; }
+        public double CurrentPrice { get; set; }
+    }
+
+    private sealed class BitcoinPriceCoverageDto
+    {
+        public DateTime MinDateTime { get; set; }
+        public DateTime MaxDateTime { get; set; }
+        public int Count { get; set; }
+    }
+
+    private sealed class ChartPointDto
+    {
+        public long Time { get; set; }
+        public decimal Value { get; set; }
+    }
+
+    private sealed class ChartMarkerDto
+    {
+        public long Time { get; set; }
+        public string Position { get; set; } = "aboveBar";
+        public string Color { get; set; } = "#ef5350";
+        public string Shape { get; set; } = "arrowDown";
+        public string Text { get; set; } = string.Empty;
+    }
+
+    private sealed class ForecastDto
+    {
+        public DateTime AsOfUtc { get; set; }
+        public double? CurrentPrice { get; set; }
+        public double CycleAth { get; set; }
+        public double CycleLow { get; set; }
+        public bool HasOpenPosition { get; set; }
+        public string NextSignalKind { get; set; } = string.Empty;
+        public string Rationale { get; set; } = string.Empty;
+        public ForecastSellSideDto? SellSide { get; set; }
+        public ForecastBuySideDto? BuySide { get; set; }
+    }
+
+    private sealed class ForecastSellSideDto
+    {
+        public bool Enabled { get; set; }
+        public DateTime? HalvingDateUtc { get; set; }
+        public bool WithinHalvingWindow { get; set; }
+        public DateTime? HalvingWindowOpenUtc { get; set; }
+        public DateTime? HalvingWindowCloseUtc { get; set; }
+        public double? MonthsSinceHalving { get; set; }
+        public double? DaysUntilWindowOpens { get; set; }
+        public double? DaysUntilWindowCloses { get; set; }
+        public double AthProximityPercent { get; set; }
+        public double AthProximityThresholdPercent { get; set; }
+        public double DrawupPercent { get; set; }
+        public double DrawupThresholdPercent { get; set; }
+        public double TriggerPriceThreshold { get; set; }
+        public int ConfirmationDays { get; set; }
+    }
+
+    private sealed class ForecastBuySideDto
+    {
+        public bool Enabled { get; set; }
+        public string AdaptiveMode { get; set; } = string.Empty;
+        public int CycleNumber { get; set; }
+        public double DrawdownThresholdPercent { get; set; }
+        public double CurrentDrawdownPercent { get; set; }
+        public double TriggerPriceThreshold { get; set; }
+    }
+
+    private DateTime StartDateUtc { get; set; } = DateTime.UtcNow.AddMonths(-12);
+    private DateTime EndDateUtc { get; set; } = DateTime.UtcNow;
+    private bool IsLoading { get; set; }
+    private string? ErrorMessage { get; set; }
+    private DealFilterMode FilterMode { get; set; } = DealFilterMode.All;
+    private UrgencyFilterMode UrgencyMode { get; set; } = UrgencyFilterMode.All;
+    private YAxisScaleMode ChartYAxisMode { get; set; } = YAxisScaleMode.Logarithmic;
+    private string ChartInterval { get; set; } = "1h";
+    private string ManualChartInterval { get; set; } = "Auto";
+    private List<BacktestTradeDto> Deals { get; set; } = new();
+    private List<ClosedDealDto> ClosedDeals { get; set; } = new();
+    private BacktestTradeDto? OpenBuyDeal { get; set; }
+    private ForecastDto? Forecast { get; set; }
+    private int _currentPage = 1;
+    private const int PageSize = 10;
+    private int TotalPages => (int)Math.Ceiling(ClosedDeals.Count / (double)PageSize);
+    private IEnumerable<ClosedDealDto> PagedDeals => ClosedDeals
+        .OrderByDescending(d => d.ExitTimestamp)
+        .Skip((_currentPage - 1) * PageSize)
+        .Take(PageSize);
+
+    private DateTime StartDateLocalValue
+    {
+        get => StartDateUtc.ToLocalTime();
+        set => StartDateUtc = DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime();
+    }
+
+    private DateTime EndDateLocalValue
+    {
+        get => EndDateUtc.ToLocalTime();
+        set => EndDateUtc = DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime();
+    }
+
+    protected override void OnInitialized()
+    {
+        // Full-range Marker-Abfragen koennen deutlich laenger als der HttpClient-Standardtimeout dauern.
+        if (Http.Timeout < TimeSpan.FromMinutes(10))
+        {
+            Http.Timeout = TimeSpan.FromMinutes(10);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadForecastAsync()
+    {
+        try
+        {
+            Forecast = await Http.GetFromJsonAsync<ForecastDto>("/Bitcoin/forecast");
+            StateHasChanged();
+        }
+        catch
+        {
+            Forecast = null;
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (EndDateUtc <= StartDateUtc)
+        {
+            ErrorMessage = "Ende muss nach Start liegen.";
+            return;
+        }
+
+        IsLoading = true;
+        ErrorMessage = null;
+        StateHasChanged();
+
+        _ = LoadForecastAsync();
+
+        try
+        {
+            var start = Uri.EscapeDataString(StartDateUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            var end = Uri.EscapeDataString(EndDateUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+            ChartInterval = ManualChartInterval == "Auto"
+                ? SelectChartInterval(StartDateUtc, EndDateUtc)
+                : ManualChartInterval;
+
+            try
+            {
+                // Extend buy query 6 months back so sells near the window start can be paired with their buy.
+                var extendedBuyStart = Uri.EscapeDataString(StartDateUtc.AddMonths(-6).ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                var buyTask = Http.GetFromJsonAsync<List<BuyActionLogDto>>(
+                    $"/api/actionlog/buyactions?startHistory={extendedBuyStart}&endHistory={end}{BuildLongTimeframeQuery()}");
+                var sellTask = Http.GetFromJsonAsync<List<SellActionLogDto>>(
+                    $"/api/actionlog/sellactions?startHistory={start}&endHistory={end}{BuildLongTimeframeQuery()}");
+
+                await Task.WhenAll(buyTask, sellTask);
+
+                var buys = buyTask.Result ?? new List<BuyActionLogDto>();
+                var sells = sellTask.Result ?? new List<SellActionLogDto>();
+
+                Deals = ApplyDealFilters(BuildDealsFromActionLogs(buys, sells)).ToList();
+
+                (ClosedDeals, OpenBuyDeal) = BuildClosedDeals(buys, sells);
+                ClosedDeals = ApplyClosedDealFilters(ClosedDeals);
+                _currentPage = 1;
+
+                if (ClosedDeals.Count == 0 && OpenBuyDeal == null)
+                {
+                    ErrorMessage = "Keine Long-Timeframe-Signale im gewählten Zeitraum gefunden. Bitte Zeitraum prüfen oder neu berechnen.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Deals = new List<BacktestTradeDto>();
+                ClosedDeals = new List<ClosedDealDto>();
+                OpenBuyDeal = null;
+                ErrorMessage = $"Deal-Marker konnten nicht geladen werden: {ex.Message}";
+            }
+
+            List<ChartPointDto> series;
+            try
+            {
+                var history = await Http.GetFromJsonAsync<List<BitcoinTradeStatusDto>>(
+                    $"/Bitcoin/prices?start={start}&end={end}&interval={ChartInterval}");
+
+                series = (history ?? new List<BitcoinTradeStatusDto>())
+                    .Where(h => h.CurrentPrice > 0)
+                    .OrderBy(h => h.MaxDateTime)
+                    .Select(h => new ChartPointDto
+                    {
+                        Time = new DateTimeOffset(DateTime.SpecifyKind(h.MaxDateTime, DateTimeKind.Utc)).ToUnixTimeSeconds(),
+                        Value = (decimal)h.CurrentPrice
+                    })
+                    .ToList();
+            }
+            catch
+            {
+                // Fallback: render a signal-based price curve from available deals.
+                series = Deals
+                    .OrderBy(d => d.Timestamp)
+                    .GroupBy(d => d.Timestamp)
+                    .Select(g => g.Last())
+                    .Where(d => d.Price > 0)
+                    .Select(d => new ChartPointDto
+                    {
+                        Time = new DateTimeOffset(DateTime.SpecifyKind(d.Timestamp, DateTimeKind.Utc)).ToUnixTimeSeconds(),
+                        Value = d.Price
+                    })
+                    .ToList();
+
+                if (series.Count == 0)
+                {
+                    ErrorMessage = "Keine Preisdaten verfügbar. Chart kann ohne Preise nicht sinnvoll gerendert werden.";
+                }
+            }
+
+            var markers = BuildMarkers(Deals, ChartInterval);
+
+            if (series.Count == 0 && Deals.Count > 0)
+            {
+                var orderedDeals = Deals.OrderBy(d => d.Timestamp).ToList();
+                var startPrice = orderedDeals.First().Price;
+                var endPrice = orderedDeals.Last().Price;
+                series = new List<ChartPointDto>
+                {
+                    new()
+                    {
+                        Time = new DateTimeOffset(StartDateUtc).ToUnixTimeSeconds(),
+                        Value = startPrice
+                    },
+                    new()
+                    {
+                        Time = new DateTimeOffset(EndDateUtc).ToUnixTimeSeconds(),
+                        Value = endPrice
+                    }
+                };
+            }
+
+            await JS.InvokeVoidAsync(
+                "signalsChart.render",
+                "signals-chart",
+                series,
+                markers,
+                new
+                {
+                    priceScaleMode = GetChartPriceScaleMode()
+                });
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Fehler beim Laden der Daten: {ex.Message}";
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetFullRangeAsync()
+    {
+        try
+        {
+            var coverage = await Http.GetFromJsonAsync<BitcoinPriceCoverageDto>("/Bitcoin/prices/coverage?interval=1h");
+            if (coverage != null && coverage.Count > 0)
+            {
+                StartDateUtc = DateTime.SpecifyKind(coverage.MinDateTime, DateTimeKind.Utc);
+            }
+            else
+            {
+                StartDateUtc = new DateTime(2012, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            }
+        }
+        catch
+        {
+            // Fail-open: still allow full-range loading even if coverage endpoint is unavailable.
+            StartDateUtc = new DateTime(2012, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        }
+
+        EndDateUtc = DateTime.UtcNow;
+        await LoadAsync();
+    }
+
+    private static string SelectChartInterval(DateTime startUtc, DateTime endUtc)
+    {
+        var range = endUtc - startUtc;
+
+        // Keep large ranges lightweight for browser rendering and API payload size.
+        if (range.TotalDays >= 365 * 8)
+        {
+            return "1w";
+        }
+
+        if (range.TotalDays >= 365 * 4)
+        {
+            return "1d";
+        }
+
+        if (range.TotalDays >= 365 * 2)
+        {
+            return "12h";
+        }
+
+        if (range.TotalDays >= 180)
+        {
+            return "4h";
+        }
+
+        if (range.TotalDays >= 60)
+        {
+            return "2h";
+        }
+
+        return "1h";
+    }
+
+    private string GetChartYAxisLabel()
+        => ChartYAxisMode == YAxisScaleMode.Logarithmic ? "Logarithmisch" : "Linear";
+
+    private string GetChartPriceScaleMode()
+        => ChartYAxisMode == YAxisScaleMode.Logarithmic ? "logarithmic" : "normal";
+
+    private static bool IsBuyOrSellAdvice(string advice)
+    {
+        return advice.Contains("Buy", StringComparison.OrdinalIgnoreCase)
+            || advice.Contains("Sell", StringComparison.OrdinalIgnoreCase)
+            || advice.Equals("HardStopLoss", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string BuildLongTimeframeQuery()
+    {
+        return "&isLongTimeframe=true";
+    }
+
+    private IEnumerable<BacktestTradeDto> ApplyDealFilters(IEnumerable<BacktestTradeDto> deals)
+    {
+        var filtered = deals;
+
+        if (FilterMode == DealFilterMode.BuySellOnly)
+        {
+            filtered = filtered.Where(d => IsBuyOrSellAdvice(d.TradeAdvice));
+        }
+
+        if (UrgencyMode == UrgencyFilterMode.UrgentOnly)
+        {
+            filtered = filtered.Where(d => d.IsUrgent);
+        }
+
+        return filtered;
+    }
+
+    private List<ClosedDealDto> ApplyClosedDealFilters(IEnumerable<ClosedDealDto> deals)
+    {
+        var filtered = deals;
+
+        if (FilterMode == DealFilterMode.BuySellOnly)
+        {
+            filtered = filtered.Where(d => IsBuyOrSellAdvice(d.ExitAdvice));
+        }
+
+        if (UrgencyMode == UrgencyFilterMode.UrgentOnly)
+        {
+            filtered = filtered.Where(d => d.IsUrgent);
+        }
+
+        return filtered.ToList();
+    }
+
+    private static List<BacktestTradeDto> BuildDealsFromActionLogs(
+        IReadOnlyCollection<BuyActionLogDto> buys,
+        IReadOnlyCollection<SellActionLogDto> sells)
+    {
+        var merged = new List<(DateTime Ts, string Advice, decimal Price, bool IsBuy, bool IsUrgent)>();
+        merged.AddRange(buys.Select(b => (DateTime.SpecifyKind(b.TradingDate, DateTimeKind.Utc), b.TradeAdvice, b.Price, true, b.IsUrgent)));
+        merged.AddRange(sells.Select(s => (DateTime.SpecifyKind(s.TradingDate, DateTimeKind.Utc), s.TradeAdvice, s.Price, false, s.IsUrgent)));
+
+        var ordered = merged.OrderBy(x => x.Ts).ToList();
+        decimal? latestBuyPrice = null;
+        var deals = new List<BacktestTradeDto>(ordered.Count);
+
+        foreach (var entry in ordered)
+        {
+            double? profit = null;
+            if (entry.IsBuy)
+            {
+                latestBuyPrice = entry.Price;
+            }
+            else if (latestBuyPrice.HasValue && latestBuyPrice.Value > 0)
+            {
+                profit = (double)((entry.Price - latestBuyPrice.Value) / latestBuyPrice.Value * 100m);
+                latestBuyPrice = null; // Reset after sell so subsequent sells don't reference a stale buy
+            }
+
+            deals.Add(new BacktestTradeDto
+            {
+                Timestamp = entry.Ts,
+                TradeAdvice = entry.Advice,
+                Price = entry.Price,
+                ProfitPercent = profit,
+                IsUrgent = entry.IsUrgent
+            });
+        }
+
+        return deals;
+    }
+
+    private static ChartMarkerDto BuildMarker(BacktestTradeDto deal)
+    {
+        var isBuy = deal.TradeAdvice.Contains("Buy", StringComparison.OrdinalIgnoreCase);
+        var isHardStop = deal.TradeAdvice.Equals("HardStopLoss", StringComparison.OrdinalIgnoreCase);
+        var isSell = isHardStop || deal.TradeAdvice.Contains("Sell", StringComparison.OrdinalIgnoreCase);
+
+        return new ChartMarkerDto
+        {
+            Time = new DateTimeOffset(DateTime.SpecifyKind(deal.Timestamp, DateTimeKind.Utc)).ToUnixTimeSeconds(),
+            Position = isBuy ? "belowBar" : "aboveBar",
+            Color = isBuy ? "#26a69a" : "#ef5350",
+            Shape = isBuy ? "arrowUp" : "arrowDown",
+            Text = isSell && isHardStop ? "HardStop" : deal.TradeAdvice
+        };
+    }
+
+    private static List<ChartMarkerDto> BuildMarkers(IEnumerable<BacktestTradeDto> deals, string interval)
+    {
+        // On large time windows (e.g., 1w), multiple identical signals can land in the same
+        // visual bucket and render on top of each other. Keep only one marker per bucket/advice/price.
+        return deals
+            .OrderBy(d => d.Timestamp)
+            .GroupBy(d => new
+            {
+                BucketStart = GetBucketStartUtc(d.Timestamp, interval),
+                Advice = d.TradeAdvice,
+                RoundedPrice = decimal.Round(d.Price, 2)
+            })
+            .Select(g => g.Last())
+            .OrderBy(d => d.Timestamp)
+            .Select(BuildMarker)
+            .ToList();
+    }
+
+    private static DateTime GetBucketStartUtc(DateTime timestamp, string interval)
+    {
+        var utc = DateTime.SpecifyKind(timestamp, DateTimeKind.Utc);
+
+        if (interval.Equals("1w", StringComparison.OrdinalIgnoreCase))
+        {
+            var mondayOffset = ((int)utc.DayOfWeek + 6) % 7;
+            return utc.Date.AddDays(-mondayOffset);
+        }
+
+        if (interval.Equals("1d", StringComparison.OrdinalIgnoreCase))
+        {
+            return utc.Date;
+        }
+
+        if (interval.EndsWith("h", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(interval[..^1], out var hours)
+            && hours > 0)
+        {
+            var bucketHour = (utc.Hour / hours) * hours;
+            return new DateTime(utc.Year, utc.Month, utc.Day, bucketHour, 0, 0, DateTimeKind.Utc);
+        }
+
+        return utc;
+    }
+
+    private static string GetDealClass(string advice)
+    {
+        if (advice.Contains("Buy", StringComparison.OrdinalIgnoreCase)) return "deal-buy";
+        if (advice.Contains("Sell", StringComparison.OrdinalIgnoreCase) || advice.Equals("HardStopLoss", StringComparison.OrdinalIgnoreCase)) return "deal-sell";
+        return "deal-neutral";
+    }
+
+    private static (List<ClosedDealDto> Closed, BacktestTradeDto? OpenBuy) BuildClosedDeals(
+        IReadOnlyCollection<BuyActionLogDto> buys,
+        IReadOnlyCollection<SellActionLogDto> sells)
+    {
+        var buyById = buys.ToDictionary(b => b.Id);
+        var matchedBuyIds = new HashSet<int>();
+        var closed = new List<ClosedDealDto>(sells.Count);
+
+        foreach (var sell in sells.OrderBy(s => s.TradingDate))
+        {
+            if (sell.BuyActionLogId.HasValue && buyById.TryGetValue(sell.BuyActionLogId.Value, out var buy))
+            {
+                matchedBuyIds.Add(buy.Id);
+                var profit = buy.Price > 0
+                    ? (double)((sell.Price - buy.Price) / buy.Price * 100m)
+                    : 0.0;
+                closed.Add(new ClosedDealDto
+                {
+                    BuyId = buy.Id,
+                    EntryTimestamp = DateTime.SpecifyKind(buy.TradingDate, DateTimeKind.Utc),
+                    EntryPrice = buy.Price,
+                    EntryAdvice = buy.TradeAdvice,
+                    ExitTimestamp = DateTime.SpecifyKind(sell.TradingDate, DateTimeKind.Utc),
+                    ExitPrice = sell.Price,
+                    ExitAdvice = sell.TradeAdvice,
+                    ProfitPercent = profit,
+                    IsUrgent = sell.IsUrgent
+                });
+            }
+        }
+
+        var openBuy = buys
+            .Where(b => !matchedBuyIds.Contains(b.Id) && b.TradingDate >= buys.Min(x => x.TradingDate))
+            .MaxBy(b => b.TradingDate);
+
+        BacktestTradeDto? openBuyDeal = openBuy == null ? null : new BacktestTradeDto
+        {
+            Timestamp = DateTime.SpecifyKind(openBuy.TradingDate, DateTimeKind.Utc),
+            TradeAdvice = openBuy.TradeAdvice,
+            Price = openBuy.Price,
+            IsUrgent = openBuy.IsUrgent
+        };
+
+        return (closed, openBuyDeal);
+    }
+
+    private static (double CompoundedPct, double HodlPct, double DeltaPct, double WinRatePct,
+        int TotalDeals, int WinCount, double AvgGainPct, double AvgLossPct, double MaxGainPct, double MaxLossPct)
+        ComputeKpis(IReadOnlyList<ClosedDealDto> deals, BacktestTradeDto? openBuy)
+    {
+        if (deals.Count == 0)
+            return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        var equity = 1.0;
+        foreach (var d in deals.OrderBy(d => d.EntryTimestamp))
+            equity *= 1.0 + d.ProfitPercent / 100.0;
+        var compounded = (equity - 1.0) * 100.0;
+
+        var firstPrice = deals.OrderBy(d => d.EntryTimestamp).First().EntryPrice;
+        var lastDeal = deals.MaxBy(d => d.ExitTimestamp)!;
+        var lastPrice = openBuy != null && openBuy.Timestamp > lastDeal.ExitTimestamp
+            ? openBuy.Price
+            : lastDeal.ExitPrice;
+        var hodl = firstPrice > 0 ? (double)((lastPrice - firstPrice) / firstPrice * 100m) : 0.0;
+
+        var wins = deals.Where(d => d.ProfitPercent > 0).ToList();
+        var losses = deals.Where(d => d.ProfitPercent <= 0).ToList();
+        var winRate = wins.Count * 100.0 / deals.Count;
+        var avgGain = wins.Count > 0 ? wins.Average(d => d.ProfitPercent) : 0.0;
+        var avgLoss = losses.Count > 0 ? losses.Average(d => d.ProfitPercent) : 0.0;
+        var maxGain = wins.Count > 0 ? wins.Max(d => d.ProfitPercent) : 0.0;
+        var maxLoss = losses.Count > 0 ? losses.Min(d => d.ProfitPercent) : 0.0;
+
+        return (compounded, hodl, compounded - hodl, winRate, deals.Count, wins.Count, avgGain, avgLoss, maxGain, maxLoss);
+    }
+
+}

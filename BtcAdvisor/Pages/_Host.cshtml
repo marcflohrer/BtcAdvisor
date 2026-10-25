@@ -1,0 +1,23 @@
+@page "/"
+@namespace BtcAdvisor.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BTC Deal Signale</title>
+    <base href="~/" />
+    <link rel="stylesheet" href="css/app.css" />
+    <script src="https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+    <app>
+        <component type="typeof(App)" render-mode="Server" />
+    </app>
+
+    <script src="_framework/blazor.server.js"></script>
+    <script src="js/signalsChart.js"></script>
+</body>
+</html>
