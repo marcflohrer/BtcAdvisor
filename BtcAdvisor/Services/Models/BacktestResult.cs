@@ -135,26 +135,13 @@ public class BacktestSplitValidationResult
 /// alle anderen Gates bleiben auf ihren appsettings-Produktionswerten.
 /// </summary>
 public record BacktestGateAblationRow(
-    /// <summary>Name des ablatierten Gates (oder "Baseline").</summary>
     string GateName,
-    /// <summary>Produktionswert des Gates (aus appsettings).</summary>
     string ProductionValue,
-    /// <summary>Wert mit dem das Gate für diese Ablation deaktiviert wurde.</summary>
     string DisabledValue,
-    /// <summary>Strategie-vs-HODL-Delta im In-Sample-Zeitraum.</summary>
     double? InSampleStrategyVsHodlDelta,
-    /// <summary>Strategie-vs-HODL-Delta im Out-of-Sample-Zeitraum.</summary>
     double? OutOfSampleStrategyVsHodlDelta,
-    /// <summary>Degradation IS→OOS. Positiv = Overfitting-Hinweis.</summary>
     double? StrategyVsHodlDegradation,
-    /// <summary>
-    /// Wie sehr ändert sich OOS-Delta wenn dieses Gate entfernt wird vs. Baseline?
-    /// Positiv = Gate schadet OOS → RemoveCandidate.
-    /// Negativ = Gate hilft OOS → KeepGate.
-    /// Null für die Baseline-Zeile selbst.
-    /// </summary>
     double? OosDeltaChangeVsBaseline,
-    /// <summary>"Reference" | "KeepGate" | "Neutral" | "RemoveCandidate"</summary>
     string Verdict
 );
 
