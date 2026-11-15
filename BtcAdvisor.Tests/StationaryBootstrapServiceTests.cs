@@ -91,33 +91,33 @@ public class StationaryBootstrapServiceTests
     }
 
     [Test]
-    public void RunAsync_InvalidDateRange_Throws()
+    public async Task RunAsync_InvalidDateRange_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _service.RunAsync(End, Start, 100, 20, 1, CancellationToken.None));
     }
 
     [Test]
-    public void RunAsync_NonPositiveIterations_Throws()
+    public async Task RunAsync_NonPositiveIterations_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _service.RunAsync(Start, End, 0, 20, 1, CancellationToken.None));
     }
 
     [Test]
-    public void RunAsync_InvalidBlockLength_Throws()
+    public async Task RunAsync_InvalidBlockLength_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _service.RunAsync(Start, End, 100, 0, 1, CancellationToken.None));
     }
 
     [Test]
-    public void RunAsync_TooFewCandles_Throws()
+    public async Task RunAsync_TooFewCandles_Throws()
     {
         SetupBacktest(EmptySummary());
         SetupCandles(MakeCandles(10, 30000, 0.05, 1));
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _service.RunAsync(Start, End, 100, 20, 1, CancellationToken.None));
     }
 

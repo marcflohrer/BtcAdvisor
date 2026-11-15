@@ -98,7 +98,14 @@ public class TradeOpportunityServiceTests
         var sut = new TradeOpportunityService(
             _mockTradingRepository.Object, _mockTelegramBotService.Object, _mockActionLogService.Object,
             _mockBinanceKlineService.Object, bearFilter.Object,
-            Options.Create(new BearMarketFilterOptions { MacroOnlyMode = true, CycleTopSellZoneEnabled = true }),
+            Options.Create(new BearMarketFilterOptions
+            {
+                MacroOnlyMode = true,
+                CycleTopSellZoneEnabled = true,
+                // Halving-Fenster deaktivieren, damit der Test nicht vom aktuellen Datum abhängt
+                CycleTopSellZoneMinMonthsAfterHalving = 0,
+                CycleTopSellZoneMaxMonthsAfterHalving = 0
+            }),
             Options.Create(new RiskControlOptions { ReEntryCooldownHours = 0 }));
 
         // Act
@@ -207,7 +214,14 @@ public class TradeOpportunityServiceTests
         var sut = new TradeOpportunityService(
             _mockTradingRepository.Object, _mockTelegramBotService.Object, _mockActionLogService.Object,
             _mockBinanceKlineService.Object, bearFilter.Object,
-            Options.Create(new BearMarketFilterOptions { MacroOnlyMode = true, CycleTopSellZoneEnabled = true }),
+            Options.Create(new BearMarketFilterOptions
+            {
+                MacroOnlyMode = true,
+                CycleTopSellZoneEnabled = true,
+                // Halving-Fenster deaktivieren, damit der Test nicht vom aktuellen Datum abhängt
+                CycleTopSellZoneMinMonthsAfterHalving = 0,
+                CycleTopSellZoneMaxMonthsAfterHalving = 0
+            }),
             Options.Create(new RiskControlOptions { ReEntryCooldownHours = 0 }));
 
         // Act
@@ -442,7 +456,14 @@ public class TradeOpportunityServiceTests
         var sut = new TradeOpportunityService(
             _mockTradingRepository.Object, _mockTelegramBotService.Object, _mockActionLogService.Object,
             _mockBinanceKlineService.Object, bearFilter.Object,
-            Options.Create(new BearMarketFilterOptions { MacroOnlyMode = true, CycleTopSellZoneEnabled = true }),
+            Options.Create(new BearMarketFilterOptions
+            {
+                MacroOnlyMode = true,
+                CycleTopSellZoneEnabled = true,
+                // Halving-Fenster deaktivieren, damit der Test nicht vom aktuellen Datum abhängt
+                CycleTopSellZoneMinMonthsAfterHalving = 0,
+                CycleTopSellZoneMaxMonthsAfterHalving = 0
+            }),
             Options.Create(new RiskControlOptions { ReEntryCooldownHours = 0 }));
 
         await sut.TradeOpportunity(deal, CancellationToken.None);
@@ -473,6 +494,8 @@ public class TradeOpportunityServiceTests
             {
                 MacroOnlyMode = true,
                 CycleTopSellZoneEnabled = true,
+                CycleTopSellZoneMinMonthsAfterHalving = 0,
+                CycleTopSellZoneMaxMonthsAfterHalving = 0,
                 AthDrawdownSuppressBearishSellEnabled = suppressEnabled,
                 AthDrawdownSuppressBearishSellThresholdPercent = 75.0
             }),
@@ -675,6 +698,8 @@ public class TradeOpportunityServiceTests
             {
                 MacroOnlyMode = true,
                 CycleTopSellZoneEnabled = true,
+                CycleTopSellZoneMinMonthsAfterHalving = 0,
+                CycleTopSellZoneMaxMonthsAfterHalving = 0,
                 CycleTopSellZoneInterval = "1d",
                 CycleTopSellZoneLookbackDays = 1460,
                 CycleTopSellZoneMinDrawupPercent = 350.0,
@@ -897,6 +922,8 @@ public class TradeOpportunityServiceTests
             {
                 MacroOnlyMode = true,
                 CycleTopSellZoneEnabled = true,
+                CycleTopSellZoneMinMonthsAfterHalving = 0,
+                CycleTopSellZoneMaxMonthsAfterHalving = 0,
                 NearAthSellSuppressEnabled = true,
                 NearAthSellSuppressMinPercent = 70.0,
                 NearAthSellSuppressInterval = "1d"

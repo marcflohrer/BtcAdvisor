@@ -90,7 +90,7 @@ public class MonteCarloSignificanceServiceTests
     }
 
     [Test]
-    public void RunAsync_NoClosedDeals_Throws()
+    public async Task RunAsync_NoClosedDeals_Throws()
     {
         _backtestMock
             .Setup(s => s.RunBacktestAsync(Start, End, It.IsAny<CancellationToken>(),
@@ -104,14 +104,14 @@ public class MonteCarloSignificanceServiceTests
                 It.IsAny<double>(), It.IsAny<int>(), It.IsAny<bool>()))
             .ReturnsAsync(new BacktestSummary { StartDate = Start, EndDate = End, Trades = new List<BacktestTrade>() });
 
-        Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
             await _service.RunAsync(Start, End, 100, seed: 1, CancellationToken.None));
     }
 
     [Test]
-    public void RunAsync_InvalidRange_Throws()
+    public async Task RunAsync_InvalidRange_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _service.RunAsync(End, Start, 100, seed: 1, CancellationToken.None));
     }
 }

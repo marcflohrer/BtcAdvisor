@@ -89,9 +89,9 @@ public class RegimeStabilityServiceTests
     }
 
     [Test]
-    public void RunAsync_InvalidRange_Throws()
+    public async Task RunAsync_InvalidRange_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentException>(async () =>
             await _service.RunAsync(FullEnd, FullStart, 30, 12, CancellationToken.None));
     }
 

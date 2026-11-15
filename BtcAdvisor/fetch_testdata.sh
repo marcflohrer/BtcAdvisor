@@ -5,9 +5,6 @@ set -euo pipefail
 FROM_UTC_ISO="2025-05-12T11:00:00Z"
 TO_UTC_ISO="2025-05-12T16:00:00Z"
 
-FROM_ET_ISO="2025-05-12T05:00:00-04:00"  # = 11:00:00Z
-TO_ET_ISO="2025-07-18T12:00:00-04:00"    # = 16:00:00Z
-
 OUT_DIR="testdata"
 BTC_FILE="${OUT_DIR}/btcusdt_2025-05-12_11-00_utc.json"
 MSTR_FILE="${OUT_DIR}/mstr_2025-05-12_11-00_utc.json"
@@ -20,7 +17,7 @@ load_env() {
     . ./.env
     set +a
   else
-    echo "WARN: .env nicht gefunden – MARKETDATA_APP_APIKEY evtl. leer."
+    echo "WARN: .env nicht gefunden."
   fi
 }
 
@@ -71,31 +68,31 @@ curl -fsSL "${BINANCE_BASE}/api/v3/klines?symbol=BTCUSDT&interval=15m&startTime=
 echo "[+] Gespeichert: ${BTC_FILE}"
 
 # =========================
-# MSTR (marketdata.app, 15m)
+# MSTR (Yahoo Finance, 15m)
+# Hinweis: Yahoo liefert 15m-Kerzen nur für die letzten ~60 Tage.
+# Für ältere Zeiträume muss interval=1d verwendet werden.
 # =========================
-if [[ -z "${MARKETDATA_APP_APIKEY:-}" ]]; then
-  echo "FEHLER: MARKETDATA_APP_APIKEY ist nicht gesetzt (siehe .env)."
-  exit 1
-fi
+YAHOO_BASE="https://query1.finance.yahoo.com"
+FROM_UNIX=$(( $(iso_to_ms "${FROM_UTC_ISO}") / 1000 ))
+TO_UNIX=$(( $(iso_to_ms "${TO_UTC_ISO}") / 1000 ))
 
-MDA_BASE="https://api.marketdata.app"
-FROM_URLENC="${FROM_UTC_ISO}"
-TO_URLENC="${TO_UTC_ISO}"
-
-echo "[*] Hole MSTR 15m von ${FROM_UTC_ISO} bis ${TO_UTC_ISO} (UTC) von marketdata.app…"
-TMP_RESP="$(mktemp)"
-trap 'rm -f "$TMP_RESP"' EXIT
-
-echo "[*] Hole MSTR 15m von ${FROM_ET_ISO} bis ${TO_ET_ISO} (ET/EDT) von marketdata.app…"
-curl -fsSL -H "Authorization: Bearer ${MARKETDATA_APP_APIKEY}" \
-  "https://api.marketdata.app/v1/stocks/candles/15/MSTR/?from=${FROM_ET_ISO}&to=${TO_ET_ISO}&extended=false" \
+echo "[*] Hole MSTR 15m von ${FROM_UTC_ISO} bis ${TO_UTC_ISO} (UTC) von Yahoo Finance…"
+curl -fsSL -H "User-Agent: Mozilla/5.0 (compatible; BtcAdvisor/1.0)" \
+  "${YAHOO_BASE}/v8/finance/chart/MSTR?interval=15m&period1=${FROM_UNIX}&period2=${TO_UNIX}&includePrePost=false" \
 | jq -r '
-  [range(0; (.t|length)) as $i |
+  .chart.result[0] as $r |
+  [range(0; ($r.timestamp|length)) as $i |
+    select($r.timestamp[$i] != null and $r.indicators.quote[0].close[$i] != null) |
     {
-      t: .t[$i], o: .o[$i], h: .h[$i], l: .l[$i], c: .c[$i], v: .v[$i],
-      openTime: (.t[$i] * 1000),
-      openTimeIso: ((.t[$i]) | todateiso8601),
-      symbol: "MSTR", interval: "15m", source: "marketdata.app"
+      t: $r.timestamp[$i],
+      o: $r.indicators.quote[0].open[$i],
+      h: $r.indicators.quote[0].high[$i],
+      l: $r.indicators.quote[0].low[$i],
+      c: $r.indicators.quote[0].close[$i],
+      v: ($r.indicators.quote[0].volume[$i] // 0),
+      openTime: ($r.timestamp[$i] * 1000),
+      openTimeIso: ($r.timestamp[$i] | todateiso8601),
+      symbol: "MSTR", interval: "15m", source: "yahoo"
     }
   ]' > "$MSTR_FILE"
 

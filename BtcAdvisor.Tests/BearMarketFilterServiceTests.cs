@@ -218,11 +218,11 @@ public class BearMarketFilterServiceTests
     }
 
     [Test]
-    public void IsDeepCycleLowAsync_InvalidThreshold_Throws()
+    public async Task IsDeepCycleLowAsync_InvalidThreshold_Throws()
     {
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _sut.IsDeepCycleLowAsync("1d", AsOf, 0.0, CancellationToken.None));
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _sut.IsDeepCycleLowAsync("1d", AsOf, 100.0, CancellationToken.None));
     }
 
@@ -362,9 +362,9 @@ public class BearMarketFilterServiceTests
     }
 
     [Test]
-    public void IsPiCycleTopAsync_EmptyInterval_Throws()
+    public async Task IsPiCycleTopAsync_EmptyInterval_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _sut.IsPiCycleTopAsync("", AsOf, CancellationToken.None));
     }
 
@@ -441,16 +441,16 @@ public class BearMarketFilterServiceTests
     }
 
     [Test]
-    public void IsPuellMultipleUndervalued_EmptyInterval_Throws()
+    public async Task IsPuellMultipleUndervalued_EmptyInterval_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _sut.IsPuellMultipleUndervaluedAsync("", AsOf, 0.5, CancellationToken.None));
     }
 
     [Test]
-    public void IsPuellMultipleUndervalued_ZeroThreshold_Throws()
+    public async Task IsPuellMultipleUndervalued_ZeroThreshold_Throws()
     {
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _sut.IsPuellMultipleUndervaluedAsync("1d", AsOf, 0.0, CancellationToken.None));
     }
 
@@ -509,23 +509,23 @@ public class BearMarketFilterServiceTests
     }
 
     [Test]
-    public void IsNearAthForSellSuppressAsync_WhenMinPercentZero_Throws()
+    public async Task IsNearAthForSellSuppressAsync_WhenMinPercentZero_Throws()
     {
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _sut.IsNearAthForSellSuppressAsync("1d", AsOf, 0.0, CancellationToken.None));
     }
 
     [Test]
-    public void IsNearAthForSellSuppressAsync_WhenMinPercentAbove100_Throws()
+    public async Task IsNearAthForSellSuppressAsync_WhenMinPercentAbove100_Throws()
     {
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _sut.IsNearAthForSellSuppressAsync("1d", AsOf, 101.0, CancellationToken.None));
     }
 
     [Test]
-    public void IsNearAthForSellSuppressAsync_WhenIntervalEmpty_Throws()
+    public async Task IsNearAthForSellSuppressAsync_WhenIntervalEmpty_Throws()
     {
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _sut.IsNearAthForSellSuppressAsync("", AsOf, 80.0, CancellationToken.None));
     }
 }

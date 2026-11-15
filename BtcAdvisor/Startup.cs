@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Swashbuckle.AspNetCore.Filters;
 using System.Reflection;
-using BtcAdvisor.Models;
 using BtcAdvisor.Repository;
 using BtcAdvisor.Services;
 using BtcAdvisor.Services.Models;
@@ -29,11 +28,11 @@ public class Startup
         services.AddHealthChecks()
             .AddDbContextCheck<ApplicationDbContext>();
             services.AddMemoryCache();
-        services.Configure<ApiSettings>(Configuration.GetSection("ApiSettings"));
         services.Configure<RiskControlOptions>(Configuration.GetSection("RiskControls"));
-        services.AddHttpClient("MARKETDATA_APP", client =>
+        services.AddHttpClient("YAHOO_FINANCE", client =>
         {
-            client.BaseAddress = new Uri("https://api.marketdata.app/");
+            client.BaseAddress = new Uri("https://query1.finance.yahoo.com/");
+            client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (compatible; BtcAdvisor/1.0)");
         });
 
         services.AddDbContext<ApplicationDbContext>(options =>
@@ -88,7 +87,7 @@ public class Startup
         services.AddScoped<IStockCandleRepository, StockCandleRepository>();
 
         services.AddTransient<IActionLogService, ActionLogService>();
-        services.AddScoped<IMarketDataApiWrapper, MarketDataApiWrapper>();
+        services.AddScoped<IMarketDataApiWrapper, YahooMarketDataApiWrapper>();
         services.AddTransient<IShortSellerDetectorService, ShortSellerDetectorService>();
         services.AddTransient<IShortSellerAlertService, ShortSellerAlertService>();
         services.AddTransient<IStockCandlePersistingService, StockCandlePersistingService>();
